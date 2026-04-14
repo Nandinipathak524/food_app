@@ -11,13 +11,20 @@ import logger from '../utils/logger.js';
 
 dotenv.config();
 
+// Support Railway's MYSQL_URL or individual env vars
+const connectionConfig = process.env.MYSQL_URL
+  ? { uri: process.env.MYSQL_URL }
+  : {
+      host: process.env.DB_HOST || 'localhost',
+      port: parseInt(process.env.DB_PORT) || 3306,
+      user: process.env.DB_USER || 'root',
+      password: process.env.DB_PASSWORD || '',
+      database: process.env.DB_NAME || 'medibridge_ai',
+    };
+
 // Create connection pool for better performance
 const pool = mysql.createPool({
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT) || 3306,
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'medibridge_ai',
+  ...connectionConfig,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,

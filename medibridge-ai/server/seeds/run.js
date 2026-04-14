@@ -132,13 +132,16 @@ const demoSessions = [
 async function seed() {
   console.log('🌱 Starting database seeding...');
 
-  const connection = await mysql.createConnection({
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT) || 3306,
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'medibridge_ai'
-  });
+  const connectionConfig = process.env.MYSQL_URL
+    ? process.env.MYSQL_URL
+    : {
+        host: process.env.DB_HOST || 'localhost',
+        port: parseInt(process.env.DB_PORT) || 3306,
+        user: process.env.DB_USER || 'root',
+        password: process.env.DB_PASSWORD || '',
+        database: process.env.DB_NAME || 'medibridge_ai'
+      };
+  const connection = await mysql.createConnection(connectionConfig);
 
   try {
     // Clear existing data (in reverse order of dependencies)

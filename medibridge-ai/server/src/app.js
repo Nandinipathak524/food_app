@@ -37,7 +37,7 @@ app.use(helmet({
 
 // CORS configuration
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: process.env.FRONTEND_URL || '*',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -93,6 +93,16 @@ app.use('/uploads', express.static(uploadDir));
 // ==================== API ROUTES ====================
 
 app.use('/api', routes);
+
+// ==================== SERVE FRONTEND (Production) ====================
+
+const clientBuildPath = path.join(__dirname, '../../client/dist');
+if (fs.existsSync(clientBuildPath)) {
+  app.use(express.static(clientBuildPath));
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(clientBuildPath, 'index.html'));
+  });
+}
 
 // ==================== ERROR HANDLING ====================
 

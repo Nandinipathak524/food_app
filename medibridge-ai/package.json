@@ -1,0 +1,12 @@
+{
+  "name": "medibridge-ai",
+  "version": "1.0.0",
+  "description": "MediBridge AI - Hospital Pre-Consultation Platform",
+  "scripts": {
+    "install:all": "cd server && npm install && cd ../client && npm install",
+    "build:client": "cd client && npm run build",
+    "seed": "cd server && node seeds/run.js",
+    "start": "cd server && node src/app.js",
+    "build": "npm run install:all && npm run build:client"
+  }
+}
