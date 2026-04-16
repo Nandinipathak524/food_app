@@ -41,7 +41,7 @@ function Layout() {
   ]
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 lg:flex">
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div
@@ -52,9 +52,9 @@ function Layout() {
 
       {/* Sidebar */}
       <aside className={`
-        fixed top-0 left-0 z-50 h-full w-64 bg-white border-r border-gray-200 transform transition-transform duration-200 ease-in-out
+        fixed top-0 left-0 z-50 h-full w-64 bg-white border-r border-gray-200 transform transition-transform duration-200 ease-in-out flex flex-col
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-        lg:translate-x-0 lg:static lg:z-auto
+        lg:translate-x-0 lg:static lg:z-auto lg:flex-shrink-0 lg:min-h-screen
       `}>
         {/* Logo */}
         <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200">
@@ -68,6 +68,18 @@ function Layout() {
           >
             <X className="w-5 h-5" />
           </button>
+        </div>
+
+        {/* Agent button */}
+        <div className="px-4 py-3 border-b border-gray-200">
+          <a
+            href="https://multipurposeagent.netlify.app/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-primary w-full"
+          >
+            Agent
+          </a>
         </div>
 
         {/* User info */}
@@ -98,26 +110,26 @@ function Layout() {
               `}
               onClick={() => setSidebarOpen(false)}
             >
-              <item.icon className="w-5 h-5" />
-              {item.label}
+              <item.icon className="w-5 h-5 flex-shrink-0" />
+              <span className="truncate">{item.label}</span>
             </NavLink>
           ))}
         </nav>
 
         {/* Logout button */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
+        <div className="mt-auto p-4 border-t border-gray-200">
           <button
             onClick={handleLogout}
             className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-red-50 hover:text-red-600 transition-colors"
           >
-            <LogOut className="w-5 h-5" />
-            Sign Out
+            <LogOut className="w-5 h-5 flex-shrink-0" />
+            <span>Sign Out</span>
           </button>
         </div>
       </aside>
 
       {/* Main content */}
-      <div className="lg:ml-64">
+      <div className="flex-1 min-w-0">
         {/* Mobile header */}
         <header className="sticky top-0 z-30 h-16 bg-white border-b border-gray-200 lg:hidden">
           <div className="flex items-center justify-between h-full px-4">

@@ -1,8 +1,3 @@
-/**
- * Main App Component
- *
- * Handles routing and role-based navigation.
- */
 
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
