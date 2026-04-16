@@ -22,11 +22,12 @@ import path from 'path';
 export async function getPatients(req, res) {
   try {
     const { risk_level, search } = req.query;
+    const doctorId = req.user.id;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
     const offset = (page - 1) * limit;
 
-    // Build query with privacy filter
+    // Build query with privacy filter — only show sessions shared with this doctor
     let sql = `
       SELECT
         ss.id as session_id,
@@ -43,10 +44,10 @@ export async function getPatients(req, res) {
         (SELECT COUNT(*) FROM followup_qa fq WHERE fq.session_id = ss.id AND fq.asked_by = 'patient' AND fq.is_answered = FALSE) as unanswered_questions
       FROM screening_sessions ss
       JOIN users u ON ss.patient_id = u.id
-      WHERE ss.is_shared = TRUE
+      WHERE ss.is_shared = TRUE AND ss.shared_with_doctor_id = ?
     `;
 
-    const params = [];
+    const params = [doctorId];
 
     // Filter by risk level
     if (risk_level && ['green', 'yellow', 'red'].includes(risk_level)) {
@@ -70,9 +71,9 @@ export async function getPatients(req, res) {
       SELECT COUNT(*) as total
       FROM screening_sessions ss
       JOIN users u ON ss.patient_id = u.id
-      WHERE ss.is_shared = TRUE
+      WHERE ss.is_shared = TRUE AND ss.shared_with_doctor_id = ?
     `;
-    const countParams = [];
+    const countParams = [doctorId];
 
     if (risk_level && ['green', 'yellow', 'red'].includes(risk_level)) {
       countSql += ' AND ss.risk_level = ?';
@@ -125,14 +126,15 @@ export async function getPatients(req, res) {
 export async function getSessionDetails(req, res) {
   try {
     const { id: sessionId } = req.params;
+    const doctorId = req.user.id;
 
-    // Get session (only if shared)
+    // Get session (only if shared with this doctor)
     const sessions = await query(
       `SELECT ss.*, u.name as patient_name, u.email as patient_email, u.phone as patient_phone
        FROM screening_sessions ss
        JOIN users u ON ss.patient_id = u.id
-       WHERE ss.id = ? AND ss.is_shared = TRUE`,
-      [sessionId]
+       WHERE ss.id = ? AND ss.is_shared = TRUE AND ss.shared_with_doctor_id = ?`,
+      [sessionId, doctorId]
     );
 
     if (sessions.length === 0) {
@@ -207,10 +209,10 @@ export async function replyToQuestion(req, res) {
     const { questionId, answer } = req.body;
     const doctorId = req.user.id;
 
-    // Verify session is shared
+    // Verify session is shared with this doctor
     const sessions = await query(
-      'SELECT id FROM screening_sessions WHERE id = ? AND is_shared = TRUE',
-      [sessionId]
+      'SELECT id FROM screening_sessions WHERE id = ? AND is_shared = TRUE AND shared_with_doctor_id = ?',
+      [sessionId, doctorId]
     );
 
     if (sessions.length === 0) {
@@ -264,10 +266,10 @@ export async function askPatient(req, res) {
     const { question, question_type } = req.body;
     const doctorId = req.user.id;
 
-    // Verify session is shared
+    // Verify session is shared with this doctor
     const sessions = await query(
-      'SELECT id FROM screening_sessions WHERE id = ? AND is_shared = TRUE',
-      [sessionId]
+      'SELECT id FROM screening_sessions WHERE id = ? AND is_shared = TRUE AND shared_with_doctor_id = ?',
+      [sessionId, doctorId]
     );
 
     if (sessions.length === 0) {
@@ -311,10 +313,10 @@ export async function addNote(req, res) {
     const { note, note_type } = req.body;
     const doctorId = req.user.id;
 
-    // Verify session is shared
+    // Verify session is shared with this doctor
     const sessions = await query(
-      'SELECT id FROM screening_sessions WHERE id = ? AND is_shared = TRUE',
-      [sessionId]
+      'SELECT id FROM screening_sessions WHERE id = ? AND is_shared = TRUE AND shared_with_doctor_id = ?',
+      [sessionId, doctorId]
     );
 
     if (sessions.length === 0) {
@@ -358,13 +360,13 @@ export async function downloadPDF(req, res) {
     const doctorId = req.user.id;
     const doctorName = req.user.name;
 
-    // Get session (only if shared)
+    // Get session (only if shared with this doctor)
     const sessions = await query(
       `SELECT ss.*, u.name as patient_name, u.email as patient_email
        FROM screening_sessions ss
        JOIN users u ON ss.patient_id = u.id
-       WHERE ss.id = ? AND ss.is_shared = TRUE`,
-      [sessionId]
+       WHERE ss.id = ? AND ss.is_shared = TRUE AND ss.shared_with_doctor_id = ?`,
+      [sessionId, doctorId]
     );
 
     if (sessions.length === 0) {
@@ -437,6 +439,7 @@ export async function downloadPDF(req, res) {
  */
 export async function getPendingQuestions(req, res) {
   try {
+    const doctorId = req.user.id;
     const questions = await query(
       `SELECT
         fq.id,
@@ -452,7 +455,9 @@ export async function getPendingQuestions(req, res) {
          AND fq.question_type = 'doctor_question'
          AND fq.is_answered = FALSE
          AND ss.is_shared = TRUE
-       ORDER BY FIELD(ss.risk_level, 'red', 'yellow', 'green'), fq.created_at ASC`
+         AND ss.shared_with_doctor_id = ?
+       ORDER BY FIELD(ss.risk_level, 'red', 'yellow', 'green'), fq.created_at ASC`,
+      [doctorId]
     );
 
     res.json({
@@ -474,12 +479,15 @@ export async function getPendingQuestions(req, res) {
  */
 export async function getStats(req, res) {
   try {
-    // Get counts by risk level
+    const doctorId = req.user.id;
+
+    // Get counts by risk level (only sessions shared with this doctor)
     const riskCounts = await query(
       `SELECT risk_level, COUNT(*) as count
        FROM screening_sessions
-       WHERE is_shared = TRUE
-       GROUP BY risk_level`
+       WHERE is_shared = TRUE AND shared_with_doctor_id = ?
+       GROUP BY risk_level`,
+      [doctorId]
     );
 
     // Get pending questions count
@@ -490,14 +498,17 @@ export async function getStats(req, res) {
        WHERE fq.asked_by = 'patient'
          AND fq.question_type = 'doctor_question'
          AND fq.is_answered = FALSE
-         AND ss.is_shared = TRUE`
+         AND ss.is_shared = TRUE
+         AND ss.shared_with_doctor_id = ?`,
+      [doctorId]
     );
 
     // Get today's sessions
     const todaySessions = await query(
       `SELECT COUNT(*) as count
        FROM screening_sessions
-       WHERE is_shared = TRUE AND DATE(created_at) = CURDATE()`
+       WHERE is_shared = TRUE AND shared_with_doctor_id = ? AND DATE(created_at) = CURDATE()`,
+      [doctorId]
     );
 
     // Format risk counts
@@ -531,14 +542,15 @@ export async function getStats(req, res) {
 export async function viewReportFile(req, res) {
   try {
     const { reportId } = req.params;
+    const doctorId = req.user.id;
 
-    // Get report with session verification
+    // Get report with session verification (only if shared with this doctor)
     const reports = await query(
       `SELECT mr.file_url, mr.original_filename, mr.mime_type
        FROM medical_reports mr
        JOIN screening_sessions ss ON mr.session_id = ss.id
-       WHERE mr.id = ? AND ss.is_shared = TRUE`,
-      [reportId]
+       WHERE mr.id = ? AND ss.is_shared = TRUE AND ss.shared_with_doctor_id = ?`,
+      [reportId, doctorId]
     );
 
     if (reports.length === 0) {

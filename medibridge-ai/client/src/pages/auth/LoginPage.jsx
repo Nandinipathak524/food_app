@@ -7,13 +7,14 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { Stethoscope, Mail, Lock, Loader2, Eye, EyeOff } from 'lucide-react'
+import { Stethoscope, Mail, Lock, Loader2, Eye, EyeOff, Users, UserCog } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 function LoginPage() {
   const { login } = useAuth()
   const navigate = useNavigate()
 
+  const [role, setRole] = useState('patient')
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -89,6 +90,39 @@ function LoginPage() {
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Sign In</h2>
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Role toggle */}
+            <div>
+              <label className="form-label">Login as</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setRole('patient')}
+                  className={`
+                    flex items-center justify-center gap-2 p-3 rounded-lg border-2 transition-colors
+                    ${role === 'patient'
+                      ? 'border-primary-500 bg-primary-50 text-primary-700'
+                      : 'border-gray-200 hover:border-gray-300'}
+                  `}
+                >
+                  <Users className="w-5 h-5" />
+                  Patient
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRole('doctor')}
+                  className={`
+                    flex items-center justify-center gap-2 p-3 rounded-lg border-2 transition-colors
+                    ${role === 'doctor'
+                      ? 'border-primary-500 bg-primary-50 text-primary-700'
+                      : 'border-gray-200 hover:border-gray-300'}
+                  `}
+                >
+                  <UserCog className="w-5 h-5" />
+                  Doctor
+                </button>
+              </div>
+            </div>
+
             {/* Email */}
             <div>
               <label className="form-label">Email Address</label>
@@ -157,10 +191,13 @@ function LoginPage() {
 
           {/* Demo credentials */}
           <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-            <p className="text-sm font-medium text-gray-700 mb-2">Demo Credentials:</p>
-            <div className="text-xs text-gray-600 space-y-1">
-              <p><span className="font-medium">Doctor:</span> doctor1@medibridge.com / Doctor123!</p>
-              <p><span className="font-medium">Patient:</span> patient1@test.com / Patient123!</p>
+            <p className="text-sm font-medium text-gray-700 mb-2">Demo Credentials ({role === 'doctor' ? 'Doctor' : 'Patient'}):</p>
+            <div className="text-xs text-gray-600">
+              {role === 'doctor' ? (
+                <p><span className="font-medium">Email:</span> doctor1@medibridge.com &nbsp;|&nbsp; <span className="font-medium">Password:</span> Doctor123!</p>
+              ) : (
+                <p><span className="font-medium">Email:</span> patient1@test.com &nbsp;|&nbsp; <span className="font-medium">Password:</span> Patient123!</p>
+              )}
             </div>
           </div>
         </div>

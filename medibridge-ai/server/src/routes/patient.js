@@ -11,6 +11,8 @@ import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import patientController from '../controllers/patient.js';
 import { authenticate, authorize } from '../middleware/auth.js';
+import ocrService from '../services/ocr.js';
+import llmService from '../services/llm.js';
 import {
   validate,
   createSessionSchema,
@@ -71,8 +73,49 @@ router.post(
 // Privacy control
 router.post('/session/:id/privacy-toggle', validate(togglePrivacySchema), patientController.togglePrivacy);
 
+// List available doctors
+router.get('/doctors', async (req, res) => {
+  try {
+    const { query: dbQuery } = await import('../config/database.js');
+    const doctors = await dbQuery(
+      "SELECT id, name, specialization FROM users WHERE role = 'doctor' ORDER BY name"
+    );
+    res.json({ success: true, data: { doctors } });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Failed to fetch doctors' });
+  }
+});
+
 // Ask doctor
 router.post('/session/:id/ask-doctor', patientController.askDoctor);
+
+// Standalone report analysis (not tied to a session)
+router.post('/analyze-report', upload.single('report'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'No file uploaded' });
+    }
+
+    const file = req.file;
+    const extraction = await ocrService.extractTextFromPDF(file.path);
+    const cleanedText = ocrService.cleanExtractedText(extraction.text);
+    const reportType = ocrService.identifyReportType(cleanedText);
+
+    let aiSummary = '';
+    if (cleanedText) {
+      aiSummary = await llmService.analyzeReport(cleanedText, reportType);
+    } else {
+      aiSummary = 'Unable to extract text from this document. It may be a scanned image. Please consult a healthcare professional for interpretation.';
+    }
+
+    res.json({
+      success: true,
+      data: { reportType, aiSummary, filename: file.originalname }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Failed to analyze report. Please try again.' });
+  }
+});
 
 // Error handler for multer
 router.use((error, req, res, next) => {

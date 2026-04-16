@@ -390,7 +390,7 @@ export async function askReportQuestion(req, res) {
 export async function togglePrivacy(req, res) {
   try {
     const { id: sessionId } = req.params;
-    const { is_shared } = req.body;
+    const { is_shared, doctor_id } = req.body;
     const patientId = req.user.id;
 
     // Verify session belongs to patient
@@ -406,23 +406,24 @@ export async function togglePrivacy(req, res) {
       });
     }
 
-    // Update privacy setting
+    // Update privacy setting and assigned doctor
     await query(
-      'UPDATE screening_sessions SET is_shared = ? WHERE id = ?',
-      [is_shared, sessionId]
+      'UPDATE screening_sessions SET is_shared = ?, shared_with_doctor_id = ? WHERE id = ?',
+      [is_shared, is_shared ? (doctor_id || null) : null, sessionId]
     );
 
     logger.info('Session privacy updated', {
       sessionId,
-      isShared: is_shared
+      isShared: is_shared,
+      doctorId: doctor_id
     });
 
     res.json({
       success: true,
       message: is_shared
-        ? 'Your session is now visible to doctors'
+        ? 'Your session is now visible to the selected doctor'
         : 'Your session is now private',
-      data: { is_shared }
+      data: { is_shared, doctor_id: is_shared ? doctor_id : null }
     });
   } catch (error) {
     logger.error('Toggle privacy error:', error);

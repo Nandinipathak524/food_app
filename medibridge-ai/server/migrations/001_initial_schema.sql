@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS screening_sessions (
 
     -- Privacy control
     is_shared BOOLEAN DEFAULT TRUE,
+    shared_with_doctor_id VARCHAR(36) NULL,
 
     -- Status tracking
     status ENUM('intake', 'followup', 'reviewed', 'completed') DEFAULT 'intake',
@@ -54,9 +55,11 @@ CREATE TABLE IF NOT EXISTS screening_sessions (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
     FOREIGN KEY (patient_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (shared_with_doctor_id) REFERENCES users(id) ON DELETE SET NULL,
     INDEX idx_patient (patient_id),
     INDEX idx_risk_level (risk_level),
     INDEX idx_is_shared (is_shared),
+    INDEX idx_shared_doctor (shared_with_doctor_id),
     INDEX idx_status (status),
     INDEX idx_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

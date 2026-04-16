@@ -21,7 +21,10 @@ import {
   AlertCircle,
   CheckCircle,
   Clock,
-  Stethoscope
+  Stethoscope,
+  Search,
+  X,
+  UserCog
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -39,6 +42,13 @@ function SessionDetails() {
   const [uploading, setUploading] = useState(false)
   const [askingDoctor, setAskingDoctor] = useState(false)
   const [doctorQuestion, setDoctorQuestion] = useState('')
+
+  // Doctor selection modal state
+  const [showDoctorModal, setShowDoctorModal] = useState(false)
+  const [doctors, setDoctors] = useState([])
+  const [doctorsLoading, setDoctorsLoading] = useState(false)
+  const [doctorSearch, setDoctorSearch] = useState('')
+  const [selectedDoctor, setSelectedDoctor] = useState(null)
 
   useEffect(() => {
     fetchSessionDetails()
@@ -60,18 +70,62 @@ function SessionDetails() {
     }
   }
 
-  const handlePrivacyToggle = async () => {
+  const fetchDoctors = async () => {
+    setDoctorsLoading(true)
     try {
-      const newValue = !session.is_shared
-      await patientAPI.togglePrivacy(sessionId, newValue)
-      setSession(prev => ({ ...prev, is_shared: newValue }))
-      toast.success(newValue
-        ? 'Session is now visible to doctors'
-        : 'Session is now private')
+      const response = await patientAPI.getDoctors()
+      setDoctors(response.data.data.doctors)
+    } catch (error) {
+      toast.error('Failed to load doctors')
+    } finally {
+      setDoctorsLoading(false)
+    }
+  }
+
+  const handleShareClick = () => {
+    if (session.is_shared) {
+      // If already shared, just unshare
+      handleUnshare()
+    } else {
+      // Open doctor selection modal
+      setShowDoctorModal(true)
+      setDoctorSearch('')
+      setSelectedDoctor(null)
+      fetchDoctors()
+    }
+  }
+
+  const handleSelectDoctor = async (doctor) => {
+    try {
+      await patientAPI.togglePrivacy(sessionId, true, doctor.id)
+      setSession(prev => ({ ...prev, is_shared: true }))
+      setSelectedDoctor(doctor)
+      setShowDoctorModal(false)
+      toast.success(`Session shared with ${doctor.name}`)
+    } catch (error) {
+      toast.error('Failed to share session')
+    }
+  }
+
+  const handleUnshare = async () => {
+    try {
+      await patientAPI.togglePrivacy(sessionId, false)
+      setSession(prev => ({ ...prev, is_shared: false }))
+      setSelectedDoctor(null)
+      toast.success('Session is now private')
     } catch (error) {
       toast.error('Failed to update privacy setting')
     }
   }
+
+  const filteredDoctors = doctors.filter(doc => {
+    const search = doctorSearch.toLowerCase()
+    if (!search) return true
+    return (
+      doc.name.toLowerCase().includes(search) ||
+      (doc.specialization && doc.specialization.toLowerCase().includes(search))
+    )
+  })
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0]
@@ -176,7 +230,7 @@ function SessionDetails() {
 
         {/* Privacy toggle */}
         <button
-          onClick={handlePrivacyToggle}
+          onClick={handleShareClick}
           className={`
             btn flex items-center gap-2
             ${session.is_shared
@@ -187,12 +241,12 @@ function SessionDetails() {
           {session.is_shared ? (
             <>
               <Eye className="w-4 h-4" />
-              Shared with Doctors
+              Shared{selectedDoctor ? ` with ${selectedDoctor.name}` : ' with Doctors'}
             </>
           ) : (
             <>
               <EyeOff className="w-4 h-4" />
-              Private
+              Share with Doctor
             </>
           )}
         </button>
@@ -425,6 +479,72 @@ function SessionDetails() {
           )}
         </div>
       </div>
+
+      {/* Doctor Selection Modal */}
+      {showDoctorModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col">
+            {/* Modal header */}
+            <div className="flex items-center justify-between p-5 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Select a Doctor</h3>
+              <button
+                onClick={() => setShowDoctorModal(false)}
+                className="p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Search bar */}
+            <div className="p-4 border-b border-gray-200">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  value={doctorSearch}
+                  onChange={(e) => setDoctorSearch(e.target.value)}
+                  placeholder="Search by name or specialization..."
+                  className="form-input pl-10"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            {/* Doctor list */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {doctorsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-6 h-6 text-primary-600 animate-spin" />
+                </div>
+              ) : filteredDoctors.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  {doctorSearch ? 'No doctors found matching your search.' : 'No doctors available.'}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {filteredDoctors.map((doctor) => (
+                    <button
+                      key={doctor.id}
+                      onClick={() => handleSelectDoctor(doctor)}
+                      className="w-full flex items-center gap-4 p-4 rounded-xl border border-gray-200 hover:border-primary-300 hover:bg-primary-50 transition-colors text-left"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
+                        <UserCog className="w-5 h-5 text-primary-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-900">{doctor.name}</p>
+                        {doctor.specialization && (
+                          <p className="text-sm text-gray-500">{doctor.specialization}</p>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

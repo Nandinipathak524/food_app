@@ -100,11 +100,23 @@ export const patientAPI = {
   askReportQuestion: (sessionId, reportId, question) =>
     api.post(`/patient/session/${sessionId}/report/${reportId}/ask`, { question }),
 
-  togglePrivacy: (sessionId, isShared) =>
-    api.post(`/patient/session/${sessionId}/privacy-toggle`, { is_shared: isShared }),
+  togglePrivacy: (sessionId, isShared, doctorId = null) =>
+    api.post(`/patient/session/${sessionId}/privacy-toggle`, { is_shared: isShared, doctor_id: doctorId }),
 
-  askDoctor: (sessionId, question) =>
-    api.post(`/patient/session/${sessionId}/ask-doctor`, { question })
+  getDoctors: () =>
+    api.get('/patient/doctors'),
+
+  askDoctor: (sessionId, question, doctorId) =>
+    api.post(`/patient/session/${sessionId}/ask-doctor`, { question, doctor_id: doctorId }),
+
+  analyzeReport: (file) => {
+    const formData = new FormData()
+    formData.append('report', file)
+    return api.post('/patient/analyze-report', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 60000
+    })
+  }
 }
 
 // ==================== DOCTOR API ====================
@@ -137,3 +149,4 @@ export const doctorAPI = {
   getReportFile: (reportId) =>
     api.get(`/doctor/report/${reportId}/file`, { responseType: 'blob' })
 }
+
