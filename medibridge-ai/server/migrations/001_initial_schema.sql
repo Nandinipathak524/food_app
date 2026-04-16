@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS screening_sessions (
     risk_explanation TEXT,
 
     -- Privacy control
-    is_shared BOOLEAN DEFAULT TRUE,
+    is_shared BOOLEAN DEFAULT FALSE,
     shared_with_doctor_id VARCHAR(36) NULL,
 
     -- Status tracking
